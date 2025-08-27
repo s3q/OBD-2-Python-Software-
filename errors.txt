@@ -1,0 +1,57 @@
+typing DTC : error in response SEARCHING...UNABLE TO CONNECT
+
+
+OBD> dtc
+Reading diagnostic trouble codes...
+430043004300
+[67, 0, 67, 0, 67, 0]
+
+Active DTCs: 3
+  C0300: Chassis - Generic - C0300
+  C0300: Chassis - Generic - C0300
+  C0300: Chassis - Generic - C0300
+
+Pending DTCs: 2
+  P0047: Powertrain - Generic - P0047
+  P0047: Powertrain - Generic - P0047
+
+OBD>
+
+
+--------------------------
+
+OBD>  pid 010C
+Reading PID 010C...
+[[16, 0]]
+[[[16, 0]]]
+Error: 'SensorReading' object has no attribute 'value'
+
+
+OBD> pid 010c
+Reading PID 010C...
+[[16, 0]]
+[[[16, 0]]]
+  010C: Engine RPM
+everything -> 01000001000011000000000000000000
+  Raw data: 410C0000
+
+
+
+
+
+OBD> dtc
+Reading diagnostic trouble codes...
+430043004300
+[67, 0, 67, 0, 67, 0]
+
+Active DTCs: 3
+  C0300: Chassis - Generic - C0300
+  C0300: Chassis - Generic - C0300
+  C0300: Chassis - Generic - C0300
+
+Pending DTCs: 5
+  P01C0: Powertrain - Generic - P01C0
+  C3347: Chassis - Reserved - C3347
+  P01C0: Powertrain - Generic - P01C0
+  C3347: Chassis - Reserved - C3347
+  P01C0: Powertrain - Generic - P01C0

@@ -408,11 +408,11 @@ class ELM327Scanner:
                     break
                     
             # Clean up response
-            response = response.replace('\r', '').replace('\n', '').replace('>', '').strip()
+            response = response.replace('\r', '').replace('\n', '').replace('>', '').replace(" ", '').strip()
             
             # Filter out echo and common responses
             if response.startswith(command):
-                response = response.strip()
+                response = response[2:].strip()
             
             return response
             
@@ -476,9 +476,10 @@ class ELM327Scanner:
     def signals_values(self,  bits_list:list, data_bits: str) -> List:
         """give each signal it is value """
         signalsv = []
-        dbits = bits_list
+        dbits = data_bits
         for b in bits_list:
-            value = dbits[b[1]:b[0]-1]
+
+            value = dbits[b[1]-1:b[1]+b[0]]
             print(value)
             signalsv.append(value)
 
@@ -492,14 +493,15 @@ class ELM327Scanner:
                 return None
             
             bits = bin(int(response, 16))[2:].zfill(len(response) * 4)
+            print(bits, " done1")
 
-            data = self._parse_hex_response(response)
-            if len(data) < 3:  # At least mode + PID + 1 data byte
+            data_bytes = self._parse_hex_response(response)
+            if len(data_bytes) < 3:  # At least mode + PID + 1 data byte
                 return None
             
             
             # Extract data bytes (skip mode and PID)
-            data_bytes = data[2:]
+            # data_bytes = data[2:]
             dbyte = data_bytes
             # Get PID info and calculate value
             pid_info = PIDDatabase.get_pid_info(pid)
@@ -511,11 +513,11 @@ class ELM327Scanner:
                 bits_list = []
                 for s in signals:
                     l = pid_info["signals"][s]['bit_length']
-                    i = pid_info["signals"][s].setdefault("bit_index", 0)
+                    i = pid_info["signals"][s].setdefault("bit_index", 1)
 
                     bits_list.append([l, i])
                 
-                
+                print(bits_list, bits)
                 signalsv = self.signals_values(bits_list, bits)
                 print(signalsv)
 #  {
@@ -527,23 +529,28 @@ class ELM327Scanner:
 # "bit_length": 1,
 # "bit_length": 16,
 # "bit_length": 8,
-                c = 0
-                for s in signals:
-                    ss = pid_info["signals"][s]
-                    l = pid_info["signals"][s]['bit_length']
-                    formula = ss.setdefault('formula', lambda x: x)
 
-                    if (ss['bit_length']/8 >= 1):
-                        num = int(signalsv[c], 2)   # convert to decimal
-                        sss = {
-                                'value': float(formula(num)),
-                                'path': ss['path'],
-                                'name': ss['name'],
-                                'unit': ss['unit'],
-                            }
-                        signals_list.append(sss)
+                if (len(signalsv) <= len(signals)):
+                    c = 0
+                    for s in signals:
+                        try:
+                            ss = pid_info["signals"][s]
+                            l = pid_info["signals"][s]['bit_length']
+                            formula = ss.setdefault('formula', lambda x: x)
 
-                    c += 1
+                            if (ss['bit_length']/8 >= 1):
+                                num = int(signalsv[c], 2)   # convert to decimal
+                                sss = {
+                                        'value': float(formula(num)),
+                                        'path': ss['path'],
+                                        'name': ss['name'],
+                                        'unit': ss['unit'],
+                                    }
+                                signals_list.append(sss)
+                        except Exception as err:
+                            print(err)
+
+                        c += 1
 
 
                     
@@ -551,9 +558,10 @@ class ELM327Scanner:
                     
                 
 
-            except:
+            except Exception as e:
+                print("Read PID Error : ", e)
                 sss = {
-                    'value': bits,
+                    'value': bits, 
                     'path': 'everything',
                     'name': 'everything',
                     'unit': '',
@@ -583,10 +591,10 @@ class ELM327Scanner:
             response = self._send_command(mode)
             if not response or "NODATA" in response.upper():
                 return dtcs
-
+            print(response)
             # Remove spaces and split into bytes
             hex_bytes = self._parse_hex_response(response)  # should return list of ints
-
+            print(hex_bytes)
             # Each DTC is 2 bytes
             for i in range(0, len(hex_bytes), 2):
                 if i + 1 >= len(hex_bytes):
@@ -850,7 +858,7 @@ class ELM327Scanner:
             # Set up the plot
             for pid in self.graph_data['pids']:
                 pid_info = PIDDatabase.get_pid_info(pid)
-                label = f"{pid}: {pid_info['name']} ({pid_info['unit']})"
+                label = f"{pid}: {pid_info['signals'][0]['name']} ({pid_info['signals'][0]['unit']})"
                 line, = self.ax.plot([], [], marker='o', markersize=3, label=label, linewidth=2)
                 self.lines[pid] = line
             
@@ -962,14 +970,17 @@ class ELM327Scanner:
                         for i, (pid, reading) in enumerate(readings.items()):
                             if i > 0:
                                 print(" | ", end="")
-                            print(f"{reading.name}: {reading.value:.1f}{reading.unit}", end="")
+                            print(f"{pid}: {reading.name}")
+                            for s in reading.signals:
+                                print(f"{s['name']} -> {s['value']:>8.2f} {s['unit']}")
+
                         sys.stdout.flush()
                     
                     # Update graph data if enabled
                     if enable_graph and MATPLOTLIB_AVAILABLE and hasattr(self, 'graph_data'):
                         try:
                             for pid, reading in readings.items():
-                                self.graph_data['data_history'][pid].append(reading.value)
+                                self.graph_data['data_history'][pid].append(reading.signals[0]['value'])
                                 self.graph_data['time_history'][pid].append(current_time)
                         except Exception as graph_error:
                             self.logger.error(f"Graph data update error: {graph_error}")
@@ -987,7 +998,9 @@ class ELM327Scanner:
         print("="*60)
         
         for pid, reading in readings.items():
-            print(f"{reading.name:<35}: {reading.value:>8.2f} {reading.unit}")
+            print(f"{pid}: {reading.name}")
+            for s in reading.signals:
+                print(f"{s['name']} -> {s['value']:>8.2f} {s['unit']}")
         
         print("="*60)
     
@@ -1003,7 +1016,7 @@ class ELM327Scanner:
                 # Write data row
                 row = [datetime.now().isoformat()]
                 for reading in readings.values():
-                    row.extend([reading.pid, reading.name, reading.value, reading.unit])
+                    row.extend([reading.pid, reading.name, reading.signals, reading.raw_data])
                 
                 writer.writerow(row)
                 
@@ -1639,7 +1652,9 @@ Examples:
         
         reading = self.scanner.read_pid(pid)
         if reading:
-            print(f"  {reading.name}: {reading.value} {reading.unit}")
+            print(f"  {reading.pid}: {reading.name} ")
+            for s in reading.signals:
+                print(f"{s['name']} -> {s['value']} {s['unit']}")
             print(f"  Raw data: {reading.raw_data}")
         else:
             print(f"Failed to read PID {pid} or PID not supported")

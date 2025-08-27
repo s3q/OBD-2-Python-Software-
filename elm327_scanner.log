@@ -1,0 +1,71 @@
+2025-08-27 11:32:49,169 - ERROR - Connection failed: [WinError 10065] A socket operation was attempted to an unreachable host
+2025-08-27 11:36:40,043 - INFO - ELM327 initialized successfully
+2025-08-27 11:36:40,047 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 11:38:26,342 - INFO - ELM327 initialized successfully
+2025-08-27 11:38:26,345 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 11:40:58,931 - ERROR - Failed to parse hex response: SEARCHING...47004700 - invalid literal for int() with base 16: 'SE'
+2025-08-27 11:43:46,508 - ERROR - Failed to read PID 0116: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 11:44:48,403 - ERROR - Failed to read PID 0115: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:48:08,358 - INFO - ELM327 initialized successfully
+2025-08-27 17:48:08,358 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 17:48:20,807 - ERROR - Failed to parse hex response: SEARCHING...430043004300 - invalid literal for int() with base 16: 'SE'
+2025-08-27 17:51:02,378 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:11,371 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:25,250 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:30,512 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:32,910 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:33,990 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:34,947 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:35,762 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:36,626 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:37,723 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:38,677 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 17:51:50,651 - ERROR - Stream worker error: 'dict' object has no attribute 'name'
+2025-08-27 17:55:24,923 - INFO - ELM327 initialized successfully
+2025-08-27 17:55:24,939 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 17:55:32,606 - ERROR - Failed to read PID 0128: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 17:55:40,823 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 17:55:41,812 - ERROR - Failed to read PID 010D: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 17:55:43,178 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 17:55:44,165 - ERROR - Failed to read PID 010D: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 17:55:45,534 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 17:55:46,523 - ERROR - Failed to read PID 010D: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 17:55:47,073 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-27 17:55:47,212 - ERROR - Stream worker error: 'dict' object has no attribute 'name'
+2025-08-27 17:57:41,032 - INFO - ELM327 initialized successfully
+2025-08-27 17:57:41,048 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 17:57:55,357 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-27 17:57:55,890 - ERROR - Stream worker error: 'dict' object has no attribute 'name'
+2025-08-27 21:15:44,278 - INFO - ELM327 initialized successfully
+2025-08-27 21:15:44,278 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 21:15:59,598 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 21:16:23,355 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-27 21:16:28,664 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 21:20:42,043 - INFO - ELM327 initialized successfully
+2025-08-27 21:20:42,043 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 21:20:48,742 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 21:20:53,902 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-27 21:21:59,090 - INFO - ELM327 initialized successfully
+2025-08-27 21:21:59,090 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 21:22:34,348 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 21:22:37,168 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 21:22:49,351 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLE TO CONNECT'
+2025-08-27 21:22:50,970 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-27 21:22:52,130 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'NO DATA'
+2025-08-27 21:32:21,711 - INFO - ELM327 initialized successfully
+2025-08-27 21:32:21,726 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 21:32:24,534 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLETOCONNECT'
+2025-08-27 21:32:35,990 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-27 21:35:33,158 - INFO - ELM327 initialized successfully
+2025-08-27 21:35:33,158 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 21:35:36,123 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLETOCONNECT'
+2025-08-27 21:35:48,453 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-27 21:46:20,940 - INFO - ELM327 initialized successfully
+2025-08-27 21:46:20,940 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 21:46:23,959 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLETOCONNECT'
+2025-08-27 21:46:29,427 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-27 21:47:38,189 - INFO - ELM327 initialized successfully
+2025-08-27 21:47:38,189 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-27 21:47:44,802 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-27 21:54:05,195 - INFO - ELM327 initialized successfully
+2025-08-27 21:54:05,195 - INFO - Connected to ELM327 at 192.168.0.10:35000
