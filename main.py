@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 ELM327 WiFi OBD-II Professional Scanner Tool
 A comprehensive command-line interface for ELM327 OBD-II scanners
@@ -21,8 +20,8 @@ from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from enum import Enum
 import time
-import matplotlib.pyplot as plt
 from collections import deque
+import pids
 
 # Optional matplotlib import for graphing
 try:
@@ -68,8 +67,13 @@ class SensorReading:
     """Data structure for sensor readings"""
     pid: str
     name: str
-    value: float
-    unit: str
+    signals: [{
+       'value': str,
+       'path': str,
+       'name': str,
+       'unit': str,
+    }] # type: ignore
+
     timestamp: datetime
     raw_data: str
 
@@ -83,94 +87,95 @@ class DTCInfo:
 class PIDDatabase:
     """Complete PID database with formulas and descriptions"""
     # (PIDs 0114-011B)
-    PIDS = {
-        # Mode 01 PIDs
-        "0100": {"name": "PIDs supported [01-20]", "unit": "bit", "formula": lambda x: x},
-        "0101": {"name": "Monitor status since DTCs cleared", "unit": "bit", "formula": lambda x: x},
-        "0102": {"name": "Freeze DTC", "unit": "code", "formula": lambda x: x},
-        "0103": {"name": "Fuel system status", "unit": "status", "formula": lambda x: x},
-        "0104": {"name": "Calculated engine load", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "0105": {"name": "Engine coolant temperature", "unit": "°C", "formula": lambda x: x[0] - 40},
-        "0106": {"name": "Short term fuel trim—Bank 1", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
-        "0107": {"name": "Long term fuel trim—Bank 1", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
-        "0108": {"name": "Short term fuel trim—Bank 2", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
-        "0109": {"name": "Long term fuel trim—Bank 2", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
-        "010A": {"name": "Fuel rail pressure", "unit": "kPa", "formula": lambda x: x[0] * 3},
-        "010B": {"name": "Intake manifold absolute pressure", "unit": "kPa", "formula": lambda x: x[0]},
-        "010C": {"name": "Engine RPM", "unit": "rpm", "formula": lambda x: (x[0] * 256 + x[1]) / 4},
-        "010D": {"name": "Vehicle speed", "unit": "km/h", "formula": lambda x: x[0]},
-        "010E": {"name": "Timing advance", "unit": "°", "formula": lambda x: (x[0] - 128) / 2},
-        "010F": {"name": "Intake air temperature", "unit": "°C", "formula": lambda x: x[0] - 40},
-        "0110": {"name": "MAF air flow rate", "unit": "g/s", "formula": lambda x: (x[0] * 256 + x[1]) / 100},
-        "0111": {"name": "Throttle position", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "0112": {"name": "Commanded secondary air status", "unit": "status", "formula": lambda x: x},
-        "0113": {"name": "Oxygen sensors present", "unit": "bit", "formula": lambda x: x},
-        "0114": {"name": "Oxygen sensor (narrowband) bank 1 sensor 1", "unit": "V", "formula": lambda x: x[0] / 200},
-        "0115": {"name": "Oxygen sensor (narrowband) bank 1 sensor 2", "unit": "V", "formula": lambda x: x[0] / 200},
-        "0116": {"name": "Oxygen sensor (narrowband) bank 1 sensor 3", "unit": "V", "formula": lambda x: x[0] / 200},
-        "0117": {"name": "Oxygen sensor (narrowband) bank 1 sensor 4", "unit": "V", "formula": lambda x: x[0] / 200},
-        "0118": {"name": "Oxygen sensor (narrowband) bank 2 sensor 1", "unit": "V", "formula": lambda x: x[0] / 200},
-        "0119": {"name": "Oxygen sensor (narrowband) bank 2 sensor 2", "unit": "V", "formula": lambda x: x[0] / 200},
-        "011A": {"name": "Oxygen sensor (narrowband) bank 2 sensor 3", "unit": "V", "formula": lambda x: x[0] / 200},
-        "011B": {"name": "Oxygen sensor (narrowband) bank 2 sensor 4", "unit": "V", "formula": lambda x: x[0] / 200},
-        "011C": {"name": "OBD standards", "unit": "code", "formula": lambda x: x},
-        "011D": {"name": "O2 sensors present (4 banks)", "unit": "bit", "formula": lambda x: x},
-        "011E": {"name": "Auxiliary input status", "unit": "bit", "formula": lambda x: x},
-        "011F": {"name": "Run time since engine start", "unit": "s", "formula": lambda x: x[0] * 256 + x[1]},
-        "0120": {"name": "PIDs supported [21-40]", "unit": "bit", "formula": lambda x: x},
-        "0121": {"name": "Distance traveled with malfunction indicator lamp (MIL) on", "unit": "km", "formula": lambda x: x[0] * 256 + x[1]},
-        "0122": {"name": "Fuel Rail Pressure", "unit": "kPa", "formula": lambda x: ((x[0] * 256 + x[1]) * 0.079)},
-        "0123": {"name": "Fuel Rail Gauge Pressure", "unit": "kPa", "formula": lambda x: ((x[0] * 256 + x[1]) * 10)},
-        "0124": {"name": "Oxygen sensor (wideband) bank 1 sensor 1", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
-        "0125": {"name": "Oxygen sensor (wideband) bank 1 sensor 2", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
-        "0126": {"name": "Oxygen sensor (wideband) bank 1 sensor 3", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
-        "0127": {"name": "Oxygen sensor (wideband) bank 1 sensor 4", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
-        "0128": {"name": "Oxygen sensor (wideband) bank 2 sensor 1", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
-        "0129": {"name": "Oxygen sensor (wideband) bank 2 sensor 2", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
-        "012A": {"name": "Oxygen sensor (wideband) bank 2 sensor 3", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
-        "012B": {"name": "Oxygen sensor (wideband) bank 2 sensor 4", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
-        "012C": {"name": "Commanded EGR", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "012D": {"name": "EGR Error", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
-        "012E": {"name": "Commanded evaporative purge", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "012F": {"name": "Fuel Tank Level Input", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "0130": {"name": "Warm-ups since codes cleared", "unit": "count", "formula": lambda x: x[0]},
-        "0131": {"name": "Distance traveled since codes cleared", "unit": "km", "formula": lambda x: x[0] * 256 + x[1]},
-        "0132": {"name": "Evap. System Vapor Pressure", "unit": "Pa", "formula": lambda x: ((x[0] * 256 + x[1]) / 4)},
-        "0133": {"name": "Absolut load value", "unit": "%", "formula": lambda x: (x[0] * 256 + x[1]) * 100 / 255},
-        "0134": {"name": "Command equivalence ratio", "unit": "ratio", "formula": lambda x: (x[0] * 256 + x[1]) / 32768},
-        "0135": {"name": "Relative throttle position", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "0136": {"name": "Ambient air temperature", "unit": "°C", "formula": lambda x: x[0] - 40},
-        "0137": {"name": "Absolute throttle position B", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "0138": {"name": "Absolute throttle position C", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "0139": {"name": "Accelerator pedal position D", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "013A": {"name": "Accelerator pedal position E", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "013B": {"name": "Accelerator pedal position F", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "013C": {"name": "Commanded throttle actuator", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "013D": {"name": "Time run with MIL on", "unit": "min", "formula": lambda x: x[0] * 256 + x[1]},
-        "013E": {"name": "Time since trouble codes cleared", "unit": "min", "formula": lambda x: x[0] * 256 + x[1]},
-        "013F": {"name": "Maximum value for equivalence ratio, oxygen sensor voltage, oxygen sensor current, and intake manifold absolute pressure", "unit": "mixed", "formula": lambda x: x},
-        "0140": {"name": "PIDs supported [41-60]", "unit": "bit", "formula": lambda x: x},
-        "0141": {"name": "Maximum value for air flow rate from mass air flow sensor", "unit": "g/s", "formula": lambda x: x[0] * 10},
-        "0142": {"name": "Fuel Type", "unit": "code", "formula": lambda x: x[0]},
-        "0143": {"name": "Ethanol fuel %", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "0144": {"name": "Absolute Evap system Vapor Pressure", "unit": "kPa", "formula": lambda x: (x[0] * 256 + x[1]) / 200},
-        "0145": {"name": "Evap system vapor pressure", "unit": "Pa", "formula": lambda x: x[0] * 256 + x[1] - 32767},
-        "0146": {"name": "Short term secondary oxygen sensor trim, A: bank 1, B: bank 3", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
-        "0147": {"name": "Long term secondary oxygen sensor trim, A: bank 1, B: bank 3", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
-        "0148": {"name": "Short term secondary oxygen sensor trim, A: bank 2, B: bank 4", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
-        "0149": {"name": "Long term secondary oxygen sensor trim, A: bank 2, B: bank 4", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
-        "014A": {"name": "Fuel rail absolute pressure", "unit": "kPa", "formula": lambda x: (x[0] * 256 + x[1]) * 10},
-        "014B": {"name": "Relative accelerator pedal position", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "014C": {"name": "Hybrid battery pack remaining life", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
-        "014D": {"name": "Engine oil temperature", "unit": "°C", "formula": lambda x: x[0] - 40},
-        "014E": {"name": "Fuel injection timing", "unit": "°", "formula": lambda x: (x[0] * 256 + x[1] - 26880) / 128},
-        "014F": {"name": "Engine fuel rate", "unit": "L/h", "formula": lambda x: (x[0] * 256 + x[1]) / 20},
-        "0150": {"name": "Emission requirements", "unit": "bit", "formula": lambda x: x},
-        "0151": {"name": "PIDs supported [51-70]", "unit": "bit", "formula": lambda x: x},
-        "0152": {"name": "Driver's demand engine - percent torque", "unit": "%", "formula": lambda x: x[0] - 125},
-        "0153": {"name": "Actual engine - percent torque", "unit": "%", "formula": lambda x: x[0] - 125},
-        "0154": {"name": "Engine reference torque", "unit": "Nm", "formula": lambda x: x[0] * 256 + x[1]},
-    }
+    PIDS = pids.PID_DICT
+    # {
+    #     # Mode 01 PIDs
+    #     "0100": {"name": "PIDs supported [01-20]", "unit": "bit", "formula": lambda x: x},
+    #     "0101": {"name": "Monitor status since DTCs cleared", "unit": "bit", "formula": lambda x: x},
+    #     "0102": {"name": "Freeze DTC", "unit": "code", "formula": lambda x: x},
+    #     "0103": {"name": "Fuel system status", "unit": "status", "formula": lambda x: x},
+    #     "0104": {"name": "Calculated engine load", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "0105": {"name": "Engine coolant temperature", "unit": "°C", "formula": lambda x: x[0] - 40},
+    #     "0106": {"name": "Short term fuel trim—Bank 1", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
+    #     "0107": {"name": "Long term fuel trim—Bank 1", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
+    #     "0108": {"name": "Short term fuel trim—Bank 2", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
+    #     "0109": {"name": "Long term fuel trim—Bank 2", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
+    #     "010A": {"name": "Fuel rail pressure", "unit": "kPa", "formula": lambda x: x[0] * 3},
+    #     "010B": {"name": "Intake manifold absolute pressure", "unit": "kPa", "formula": lambda x: x[0]},
+    #     "010C": {"name": "Engine RPM", "unit": "rpm", "formula": lambda x: (x[0] * 256 + x[1]) / 4},
+    #     "010D": {"name": "Vehicle speed", "unit": "km/h", "formula": lambda x: x[0]},
+    #     "010E": {"name": "Timing advance", "unit": "°", "formula": lambda x: (x[0] - 128) / 2},
+    #     "010F": {"name": "Intake air temperature", "unit": "°C", "formula": lambda x: x[0] - 40},
+    #     "0110": {"name": "MAF air flow rate", "unit": "g/s", "formula": lambda x: (x[0] * 256 + x[1]) / 100},
+    #     "0111": {"name": "Throttle position", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "0112": {"name": "Commanded secondary air status", "unit": "status", "formula": lambda x: x},
+    #     "0113": {"name": "Oxygen sensors present", "unit": "bit", "formula": lambda x: x},
+    #     "0114": {"name": "Oxygen sensor (narrowband) bank 1 sensor 1", "unit": "V", "formula": lambda x: x[0] / 200},
+    #     "0115": {"name": "Oxygen sensor (narrowband) bank 1 sensor 2", "unit": "V", "formula": lambda x: x[0] / 200},
+    #     "0116": {"name": "Oxygen sensor (narrowband) bank 1 sensor 3", "unit": "V", "formula": lambda x: x[0] / 200},
+    #     "0117": {"name": "Oxygen sensor (narrowband) bank 1 sensor 4", "unit": "V", "formula": lambda x: x[0] / 200},
+    #     "0118": {"name": "Oxygen sensor (narrowband) bank 2 sensor 1", "unit": "V", "formula": lambda x: x[0] / 200},
+    #     "0119": {"name": "Oxygen sensor (narrowband) bank 2 sensor 2", "unit": "V", "formula": lambda x: x[0] / 200},
+    #     "011A": {"name": "Oxygen sensor (narrowband) bank 2 sensor 3", "unit": "V", "formula": lambda x: x[0] / 200},
+    #     "011B": {"name": "Oxygen sensor (narrowband) bank 2 sensor 4", "unit": "V", "formula": lambda x: x[0] / 200},
+    #     "011C": {"name": "OBD standards", "unit": "code", "formula": lambda x: x},
+    #     "011D": {"name": "O2 sensors present (4 banks)", "unit": "bit", "formula": lambda x: x},
+    #     "011E": {"name": "Auxiliary input status", "unit": "bit", "formula": lambda x: x},
+    #     "011F": {"name": "Run time since engine start", "unit": "s", "formula": lambda x: x[0] * 256 + x[1]},
+    #     "0120": {"name": "PIDs supported [21-40]", "unit": "bit", "formula": lambda x: x},
+    #     "0121": {"name": "Distance traveled with malfunction indicator lamp (MIL) on", "unit": "km", "formula": lambda x: x[0] * 256 + x[1]},
+    #     "0122": {"name": "Fuel Rail Pressure", "unit": "kPa", "formula": lambda x: ((x[0] * 256 + x[1]) * 0.079)},
+    #     "0123": {"name": "Fuel Rail Gauge Pressure", "unit": "kPa", "formula": lambda x: ((x[0] * 256 + x[1]) * 10)},
+    #     "0124": {"name": "Oxygen sensor (wideband) bank 1 sensor 1", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
+    #     "0125": {"name": "Oxygen sensor (wideband) bank 1 sensor 2", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
+    #     "0126": {"name": "Oxygen sensor (wideband) bank 1 sensor 3", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
+    #     "0127": {"name": "Oxygen sensor (wideband) bank 1 sensor 4", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
+    #     "0128": {"name": "Oxygen sensor (wideband) bank 2 sensor 1", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
+    #     "0129": {"name": "Oxygen sensor (wideband) bank 2 sensor 2", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
+    #     "012A": {"name": "Oxygen sensor (wideband) bank 2 sensor 3", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
+    #     "012B": {"name": "Oxygen sensor (wideband) bank 2 sensor 4", "unit": "ratio", "formula": lambda x: ((x[0] * 256 + x[1]) / 32768)},
+    #     "012C": {"name": "Commanded EGR", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "012D": {"name": "EGR Error", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
+    #     "012E": {"name": "Commanded evaporative purge", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "012F": {"name": "Fuel Tank Level Input", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "0130": {"name": "Warm-ups since codes cleared", "unit": "count", "formula": lambda x: x[0]},
+    #     "0131": {"name": "Distance traveled since codes cleared", "unit": "km", "formula": lambda x: x[0] * 256 + x[1]},
+    #     "0132": {"name": "Evap. System Vapor Pressure", "unit": "Pa", "formula": lambda x: ((x[0] * 256 + x[1]) / 4)},
+    #     "0133": {"name": "Absolut load value", "unit": "%", "formula": lambda x: (x[0] * 256 + x[1]) * 100 / 255},
+    #     "0134": {"name": "Command equivalence ratio", "unit": "ratio", "formula": lambda x: (x[0] * 256 + x[1]) / 32768},
+    #     "0135": {"name": "Relative throttle position", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "0136": {"name": "Ambient air temperature", "unit": "°C", "formula": lambda x: x[0] - 40},
+    #     "0137": {"name": "Absolute throttle position B", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "0138": {"name": "Absolute throttle position C", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "0139": {"name": "Accelerator pedal position D", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "013A": {"name": "Accelerator pedal position E", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "013B": {"name": "Accelerator pedal position F", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "013C": {"name": "Commanded throttle actuator", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "013D": {"name": "Time run with MIL on", "unit": "min", "formula": lambda x: x[0] * 256 + x[1]},
+    #     "013E": {"name": "Time since trouble codes cleared", "unit": "min", "formula": lambda x: x[0] * 256 + x[1]},
+    #     "013F": {"name": "Maximum value for equivalence ratio, oxygen sensor voltage, oxygen sensor current, and intake manifold absolute pressure", "unit": "mixed", "formula": lambda x: x},
+    #     "0140": {"name": "PIDs supported [41-60]", "unit": "bit", "formula": lambda x: x},
+    #     "0141": {"name": "Maximum value for air flow rate from mass air flow sensor", "unit": "g/s", "formula": lambda x: x[0] * 10},
+    #     "0142": {"name": "Fuel Type", "unit": "code", "formula": lambda x: x[0]},
+    #     "0143": {"name": "Ethanol fuel %", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "0144": {"name": "Absolute Evap system Vapor Pressure", "unit": "kPa", "formula": lambda x: (x[0] * 256 + x[1]) / 200},
+    #     "0145": {"name": "Evap system vapor pressure", "unit": "Pa", "formula": lambda x: x[0] * 256 + x[1] - 32767},
+    #     "0146": {"name": "Short term secondary oxygen sensor trim, A: bank 1, B: bank 3", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
+    #     "0147": {"name": "Long term secondary oxygen sensor trim, A: bank 1, B: bank 3", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
+    #     "0148": {"name": "Short term secondary oxygen sensor trim, A: bank 2, B: bank 4", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
+    #     "0149": {"name": "Long term secondary oxygen sensor trim, A: bank 2, B: bank 4", "unit": "%", "formula": lambda x: (x[0] - 128) * 100 / 128},
+    #     "014A": {"name": "Fuel rail absolute pressure", "unit": "kPa", "formula": lambda x: (x[0] * 256 + x[1]) * 10},
+    #     "014B": {"name": "Relative accelerator pedal position", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "014C": {"name": "Hybrid battery pack remaining life", "unit": "%", "formula": lambda x: x[0] * 100 / 255},
+    #     "014D": {"name": "Engine oil temperature", "unit": "°C", "formula": lambda x: x[0] - 40},
+    #     "014E": {"name": "Fuel injection timing", "unit": "°", "formula": lambda x: (x[0] * 256 + x[1] - 26880) / 128},
+    #     "014F": {"name": "Engine fuel rate", "unit": "L/h", "formula": lambda x: (x[0] * 256 + x[1]) / 20},
+    #     "0150": {"name": "Emission requirements", "unit": "bit", "formula": lambda x: x},
+    #     "0151": {"name": "PIDs supported [51-70]", "unit": "bit", "formula": lambda x: x},
+    #     "0152": {"name": "Driver's demand engine - percent torque", "unit": "%", "formula": lambda x: x[0] - 125},
+    #     "0153": {"name": "Actual engine - percent torque", "unit": "%", "formula": lambda x: x[0] - 125},
+    #     "0154": {"name": "Engine reference torque", "unit": "Nm", "formula": lambda x: x[0] * 256 + x[1]},
+    # }
     
     @classmethod
     def get_pid_info(cls, pid: str) -> Dict[str, Any]:
@@ -407,7 +412,7 @@ class ELM327Scanner:
             
             # Filter out echo and common responses
             if response.startswith(command):
-                response = response[len(command):].strip()
+                response = response.strip()
             
             return response
             
@@ -468,6 +473,17 @@ class ELM327Scanner:
         
         return supported_pids
     
+    def signals_values(self,  bits_list:list, data_bits: str) -> List:
+        """give each signal it is value """
+        signalsv = []
+        dbits = bits_list
+        for b in bits_list:
+            value = dbits[b[1]:b[0]-1]
+            print(value)
+            signalsv.append(value)
+
+        return signalsv
+    
     def read_pid(self, pid: str) -> Optional[SensorReading]:
         """Read a specific PID and return sensor reading"""
         try:
@@ -475,30 +491,83 @@ class ELM327Scanner:
             if not response or "NODATA" in response.upper():
                 return None
             
+            bits = bin(int(response, 16))[2:].zfill(len(response) * 4)
+
             data = self._parse_hex_response(response)
             if len(data) < 3:  # At least mode + PID + 1 data byte
                 return None
             
+            
             # Extract data bytes (skip mode and PID)
             data_bytes = data[2:]
-            
+            dbyte = data_bytes
             # Get PID info and calculate value
             pid_info = PIDDatabase.get_pid_info(pid)
             
+            signals = pid_info["signals"].keys()
+            signals_list = []
             try:
-                calculated_value = pid_info["formula"](data_bytes)
-                if isinstance(calculated_value, (list, tuple)):
-                    calculated_value = calculated_value[0] if calculated_value else 0
+
+                bits_list = []
+                for s in signals:
+                    l = pid_info["signals"][s]['bit_length']
+                    i = pid_info["signals"][s].setdefault("bit_index", 0)
+
+                    bits_list.append([l, i])
+                
+                
+                signalsv = self.signals_values(bits_list, bits)
+                print(signalsv)
+#  {
+#        'value': str,
+#        'path': str,
+#        'name': str,
+#        'unit': str,
+#     }
+# "bit_length": 1,
+# "bit_length": 16,
+# "bit_length": 8,
+                c = 0
+                for s in signals:
+                    ss = pid_info["signals"][s]
+                    l = pid_info["signals"][s]['bit_length']
+                    formula = ss.setdefault('formula', lambda x: x)
+
+                    if (ss['bit_length']/8 >= 1):
+                        num = int(signalsv[c], 2)   # convert to decimal
+                        sss = {
+                                'value': float(formula(num)),
+                                'path': ss['path'],
+                                'name': ss['name'],
+                                'unit': ss['unit'],
+                            }
+                        signals_list.append(sss)
+
+                    c += 1
+
+
+                    
+                    
+                    
+                
+
             except:
-                calculated_value = data_bytes[0] if data_bytes else 0
+                sss = {
+                    'value': bits,
+                    'path': 'everything',
+                    'name': 'everything',
+                    'unit': '',
+                }
+                signals_list.append(sss)
+
+
             
             return SensorReading(
                 pid=pid,
                 name=pid_info["name"],
-                value=float(calculated_value),
-                unit=pid_info["unit"],
+                signals=signals_list,
                 timestamp=datetime.now(),
-                raw_data=response
+                raw_data=response,
             )
             
         except Exception as e:
