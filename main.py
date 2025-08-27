@@ -1868,7 +1868,7 @@ Examples:
             fuel = float(args[1])
             
             results = self.scanner.calculate_fuel_economy(distance, fuel) if self.scanner else {}
-            
+              
             print(f"\nFuel Economy Calculation:")
             print(f"Distance: {distance} km")
             print(f"Fuel used: {fuel} L")
