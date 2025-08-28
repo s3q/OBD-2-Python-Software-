@@ -69,3 +69,47 @@
 2025-08-27 21:47:44,802 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
 2025-08-27 21:54:05,195 - INFO - ELM327 initialized successfully
 2025-08-27 21:54:05,195 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-28 10:33:49,672 - INFO - ELM327 initialized successfully
+2025-08-28 10:33:49,687 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-28 10:34:06,905 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-28 10:39:53,889 - INFO - ELM327 initialized successfully
+2025-08-28 10:39:53,889 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-28 10:39:57,240 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-28 10:45:05,667 - INFO - ELM327 initialized successfully
+2025-08-28 10:45:05,683 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-28 10:45:34,566 - ERROR - Failed to read PID O1OC: invalid literal for int() with base 16: '?'
+2025-08-28 10:45:36,870 - ERROR - Failed to read PID O1OC: invalid literal for int() with base 16: '?'
+2025-08-28 10:45:38,210 - ERROR - Failed to read PID O1OC: invalid literal for int() with base 16: '?'
+2025-08-28 10:45:45,197 - ERROR - Failed to read PID O1OC: invalid literal for int() with base 16: '?'
+2025-08-28 10:45:46,013 - ERROR - Failed to read PID O1OC: invalid literal for int() with base 16: '?'
+2025-08-28 10:45:50,796 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-28 10:50:39,952 - ERROR - Command failed: ATZ - substring not found
+2025-08-28 10:50:39,952 - INFO - Disconnected from ELM327
+2025-08-28 10:51:05,010 - ERROR - Command failed: ATL0 - substring not found
+2025-08-28 10:51:05,010 - INFO - Disconnected from ELM327
+2025-08-28 10:51:19,134 - ERROR - Command failed: ATZ - substring not found
+2025-08-28 10:51:19,134 - INFO - Disconnected from ELM327
+2025-08-28 10:51:29,973 - ERROR - Connection failed: [WinError 10065] A socket operation was attempted to an unreachable host
+2025-08-28 10:51:32,236 - ERROR - Connection failed: [WinError 10065] A socket operation was attempted to an unreachable host
+2025-08-28 10:51:33,072 - ERROR - Connection failed: [WinError 10065] A socket operation was attempted to an unreachable host
+2025-08-28 10:51:37,916 - ERROR - Connection failed: [WinError 10065] A socket operation was attempted to an unreachable host
+2025-08-28 10:51:38,793 - ERROR - Connection failed: [WinError 10065] A socket operation was attempted to an unreachable host
+2025-08-28 10:51:39,549 - ERROR - Connection failed: [WinError 10065] A socket operation was attempted to an unreachable host
+2025-08-28 10:51:40,375 - ERROR - Connection failed: [WinError 10065] A socket operation was attempted to an unreachable host
+2025-08-28 10:51:41,252 - ERROR - Connection failed: [WinError 10065] A socket operation was attempted to an unreachable host
+2025-08-28 10:52:33,210 - ERROR - Command failed: ATL0 - substring not found
+2025-08-28 10:52:33,226 - INFO - Disconnected from ELM327
+2025-08-28 10:52:42,588 - ERROR - Command failed: ATZ - substring not found
+2025-08-28 10:52:42,588 - INFO - Disconnected from ELM327
+2025-08-28 10:52:52,211 - ERROR - Command failed: ATL0 - substring not found
+2025-08-28 10:52:52,211 - INFO - Disconnected from ELM327
+2025-08-28 10:53:03,278 - ERROR - Command failed: ATZ - substring not found
+2025-08-28 10:53:03,278 - INFO - Disconnected from ELM327
+2025-08-28 10:53:30,530 - INFO - ELM327 initialized successfully
+2025-08-28 10:53:30,530 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-28 10:53:40,648 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLETOCONNECT'
+2025-08-28 10:53:43,530 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLETOCONNECT'
+2025-08-28 10:53:45,662 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...UNABLETOCONNECT'
+2025-08-28 10:53:55,904 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
+2025-08-28 10:55:10,519 - ERROR - Failed to read PID 100C: 'signals'
+2025-08-28 10:55:25,530 - ERROR - Failed to read PID 10C0: 'signals'

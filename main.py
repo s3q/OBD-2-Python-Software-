@@ -409,11 +409,12 @@ class ELM327Scanner:
                     
             # Clean up response
             response = response.replace('\r', '').replace('\n', '').replace('>', '').replace(" ", '').strip()
-            
+            print(response, "R1", response.find(command) )
             # Filter out echo and common responses
             if response.startswith(command):
                 response = response[2:].strip()
             
+            print(response, "R2")
             return response
             
         except Exception as e:
@@ -479,7 +480,7 @@ class ELM327Scanner:
         dbits = data_bits
         for b in bits_list:
 
-            value = dbits[b[1]-1:b[1]+b[0]]
+            value = dbits[b[1]-1:b[1]+b[0]-1]
             print(value)
             signalsv.append(value)
 
