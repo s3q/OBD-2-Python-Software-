@@ -7,6 +7,7 @@ Version: 1.0.0
 https://www.dashlogic.com/docs/technical/obdii_pids
 """
 
+import os
 import socket
 import time
 import threading
@@ -22,6 +23,9 @@ from enum import Enum
 import time
 from collections import deque
 import pids
+import re
+from typing import List, Optional
+
 
 # Optional matplotlib import for graphing
 try:
@@ -37,6 +41,7 @@ except ImportError:
 with open("dtc.json", "r") as f:
     dtc_dict = json.load(f)
 
+_SYSTEM_STRINGS = ("SEARCHING", "BUSINIT", "BUS INIT", "STOPPED", "NODATA", "NO DATA")
 
 # Configure logging
 logging.basicConfig(
@@ -287,6 +292,35 @@ class DTC_Database:
         
         return f"Unknown DTC: {code}"
 
+class StoreRadings:
+
+    def appendToJson(self, filename, new_reading):
+        filename = filename + ".json"
+
+        
+
+        # Step 1: If file exists, read it. Otherwise, start with an empty list
+        if os.path.exists(filename):
+            with open(filename, "r") as f:
+                try:
+                    data = json.load(f)
+                except json.JSONDecodeError:
+                    data = []
+        else:
+            data = []
+
+        # Step 2: Append the new reading
+        data.append(new_reading)
+
+        # Step 3: Write it back to the file
+        with open(filename, "w") as f:
+            json.dump(data, f, indent=4)
+
+        print("Current Readings saved! in ", filename)
+    
+
+
+
 class ELM327Scanner:
     """Main ELM327 Scanner class with comprehensive functionality"""
     
@@ -377,8 +411,19 @@ class ELM327Scanner:
         except Exception as e:
             self.logger.error(f"ELM327 initialization failed: {e}")
             return False
+        
+
+    def parse_pid_response(self, resp: str):
+        """
+        Assumes resp is already cleaned (e.g., '410C0FA0').
+        """
+        mode = resp[:2]   # '41'
+        pid  = resp[2:4]  # '0C'
+        data = resp[4:]   # '0FA0' (remaining hex string)
+        return mode, pid, data
+
     
-    def _send_command(self, command: str, timeout: float = 5.0) -> str:
+    def _send_command(self, command: str, timeout: float = 5.0) -> str: ## !! checked :)
         """Send command to ELM327 and return response"""
         if not self.connected or not self.socket:
             return ""
@@ -411,10 +456,14 @@ class ELM327Scanner:
             response = response.replace('\r', '').replace('\n', '').replace('>', '').replace(" ", '').strip()
             print(response, "R1", response.find(command) )
             # Filter out echo and common responses
+            # If the command echo is in the response, remove it
             if response.startswith(command):
-                response = response[2:].strip()
+                response = response[len(command):].strip()
+
+            ## ?? may it not sutable here 
+            # mode, pid, data = self.parse_pid_response(response)
             
-            print(response, "R2")
+            # print("ECU respond --> ",mode, pid, data, " ")
             return response
             
         except Exception as e:
@@ -455,10 +504,12 @@ class ELM327Scanner:
                 response = self._send_command(command)
                 
                 if response and "NODATA" not in response.upper():
-                    data = self._parse_hex_response(response)
+                    modep, pid, r = self.parse_pid_response(response) ## for skipping pid and mode
+                    data = self._parse_hex_response(r)
                     if len(data) >= 6:  # Mode + PID + 4 bytes of data
-                        # Skip mode and PID bytes
-                        pid_data = data[2:6]
+                        # Skip mode and PID bytes we have skiped it in __send_command
+                        # pid_data = data[2:6]
+                        pid_data = data
                         
                         # Parse supported PIDs from bitmask
                         base_pid = int(pid_range, 16)
@@ -474,7 +525,7 @@ class ELM327Scanner:
         
         return supported_pids
     
-    def signals_values(self,  bits_list:list, data_bits: str) -> List:
+    def signals_values(self,  bits_list:list, data_bits: str) -> List: ## !! checked :)
         """give each signal it is value """
         signalsv = []
         dbits = data_bits
@@ -486,17 +537,21 @@ class ELM327Scanner:
 
         return signalsv
     
-    def read_pid(self, pid: str) -> Optional[SensorReading]:
+    def read_pid(self, pid: str, skippedByet=0) -> Optional[SensorReading]: ## !! checked :)
         """Read a specific PID and return sensor reading"""
         try:
             response = self._send_command(pid)
             if not response or "NODATA" in response.upper():
                 return None
             
-            bits = bin(int(response, 16))[2:].zfill(len(response) * 4)
+            rmode, rpid, r = self.parse_pid_response(response) ## for skipping pid and mode
+            
+            data_bytes = self._parse_hex_response(r)
+            data_bytes = data_bytes[skippedByet:]
+
+            bits = bin(int(r, 16))[2:].zfill(len(r) * 4)
             print(bits, " done1")
 
-            data_bytes = self._parse_hex_response(response)
             if len(data_bytes) < 3:  # At least mode + PID + 1 data byte
                 return None
             
@@ -595,6 +650,8 @@ class ELM327Scanner:
             print(response)
             # Remove spaces and split into bytes
             hex_bytes = self._parse_hex_response(response)  # should return list of ints
+            # ECU reply for Mode 03 (the first byte is 40 + 03).
+            hex_bytes = hex_bytes[1:]
             print(hex_bytes)
             # Each DTC is 2 bytes
             for i in range(0, len(hex_bytes), 2):
@@ -674,10 +731,10 @@ class ELM327Scanner:
             system_bits = (dtc_bytes[0] & 0xC0) >> 6
             system_map = {0: 'P', 1: 'C', 2: 'B', 3: 'U'}
             system = system_map.get(system_bits, 'P')
-            
+
             # Remaining 14 bits are the code
             code_value = ((dtc_bytes[0] & 0x3F) << 8) | dtc_bytes[1]
-            
+
             return f"{system}{code_value:04X}"
             
         except Exception as e:
@@ -685,12 +742,28 @@ class ELM327Scanner:
             return ""
     
     def get_freeze_frame_data(self, dtc_index: int = 0) -> Dict[str, Any]:
-        """Read freeze frame data"""
+        """Read freeze frame data
+        https://x-engineer.org/obd-diagnostic-service-mode-02-request-powertrain-freeze-frame-data/
+        """
+        """
+        
+        Request Example (from the scantool to ECM): 02 00 01
+
+02 – Service Identifier (SID) for freeze frame data request.
+00 – PID to report supported PIDs.
+01 – frame number (the ECU can store multiple freeze frames).
+Response Example (from the ECM to scantool): 42 00 01 5F B8 00 00
+
+42 – Response Service Identifier.
+00 – PID to report supported PIDs.
+01 – frame number (the ECU can store multiple freeze frames).
+5F B8 00 00 – Bitmap indicating supported PIDs; each bit in the data bytes corresponds to a PID. If a bit is 1, the PID is supported.
+"""
         freeze_data = {}
         
         try:
             # Mode 02 - Freeze Frame Data
-            response = self._send_command(f"02{dtc_index:02X}")
+            response = self._send_command(f"0200{dtc_index:02X}")
             if response and "NODATA" not in response.upper():
                 data = self._parse_hex_response(response)
                 
@@ -701,22 +774,19 @@ class ELM327Scanner:
                     freeze_data["raw_data"] = response
                     
                     # Common freeze frame PIDs
-                    freeze_pids = ["05", "0C", "0D", "0F", "11"]  # Common freeze frame PIDs
+                    freeze_pids = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '0A', '0B', '0C', '0D', '0E', '0F', '10']  # Common freeze frame PIDs
                     for pid in freeze_pids:
-                        reading = self.read_pid(f"02{pid}")
+                        reading = self.read_pid(f"02{pid}{dtc_index:02X}", skippedByet=1)
                         if reading:
-                            freeze_data[pid] = {
-                                "name": reading.name,
-                                "value": reading.value,
-                                "unit": reading.unit
-                            }
+                            freeze_data[pid] = reading
+            
             
         except Exception as e:
             self.logger.error(f"Failed to read freeze frame data: {e}")
         
         return freeze_data
     
-    def get_vehicle_info(self) -> Dict[str, str]:
+    def get_vehicle_info(self) -> Dict[str, str]: # !! checked :)
         """Get comprehensive vehicle information"""
         info = {}
         
@@ -751,7 +821,7 @@ class ELM327Scanner:
         
         return info
     
-    def get_vin(self) -> str:
+    def get_vin(self) -> str: # !! checked :)
         """Get Vehicle Identification Number"""
         try:
             if self.vin:
@@ -763,13 +833,13 @@ class ELM327Scanner:
                 data = self._parse_hex_response(response)
                 
                 # VIN is typically 17 ASCII characters
-                if len(data) >= 19:  # Mode + PID + 17 VIN bytes
-                    vin_bytes = data[2:19]  # Skip mode and PID
-                    vin = ''.join(chr(b) for b in vin_bytes if 32 <= b <= 126)
-                    
-                    if len(vin) == 17:
-                        self.vin = vin
-                        return vin
+                # if len(data) >= 19:  # Mode + PID + 17 VIN bytes
+                    # vin_bytes = data[2:19]  # Skip mode and PID
+                vin = ''.join(chr(b) for b in data if 32 <= b <= 126)
+                
+                if len(vin) == 17:
+                    self.vin = vin
+                    return vin
             
             return ""
             
@@ -1089,7 +1159,7 @@ class ELM327Scanner:
             self.logger.error(f"AT command failed: {e}")
             return ""
     
-    def perform_o2_sensor_test(self) -> Dict[str, Any]:
+    def perform_o2_sensor_test(self) -> Dict[str, Any]: ## !! checked :)
         """Perform oxygen sensor tests"""
         results = {}
         
@@ -1103,23 +1173,37 @@ class ELM327Scanner:
             for i in range(8):
                 pid = f"01{0x14 + i:02X}"
                 reading = self.read_pid(pid)
+
+
                 if reading:
-                    results[f"sensor_{i+1}_voltage"] = {
-                        "value": reading.value,
-                        "unit": reading.unit,
-                        "status": "OK" if 0.1 <= reading.value <= 0.9 else "Check"
-                    }
+                    # results[f"sensor_{i+1}_voltage"] = {
+                    #     "value": reading.value,
+                    #     "unit": reading.unit,
+                    #     "status": "OK" if 0.1 <= reading.value <= 0.9 else "Check"
+                    # }
+                    if reading.pid:
+                        results[reading.name] = {
+                            "value": reading.signals[0]['value'],
+                            "unit": reading.signals[0]['unit'],
+                            "status": "OK" if 0.1 <= reading.signals[0]['value'] <= 0.9 else "Check"
+                        }
             
             # Read wide-range O2 sensors (PIDs 0124-012B)
             for i in range(8):
                 pid = f"01{0x24 + i:02X}"
                 reading = self.read_pid(pid)
                 if reading:
-                    results[f"wr_sensor_{i+1}_lambda"] = {
-                        "value": reading.value,
-                        "unit": reading.unit,
-                        "status": "OK" if 0.5 <= reading.value <= 1.5 else "Check"
-                    }
+                    # results[f"wr_sensor_{i+1}_lambda"] = {
+                    #     "value": reading.value,
+                    #     "unit": reading.unit,
+                    #     "status": "OK" if 0.5 <= reading.value <= 1.5 else "Check"
+                    # }
+                    if reading.pid:
+                        results[reading.name] = {
+                            "value": reading.signals[0]['value'],
+                            "unit": reading.signals[0]['unit'],
+                            "status": "OK" if 0.1 <= reading.signals[0]['value'] <= 0.9 else "Check"
+                        }
             
         except Exception as e:
             self.logger.error(f"O2 sensor test failed: {e}")
@@ -1137,17 +1221,17 @@ class ELM327Scanner:
             # Test EGR valve (if supported)
             egr_test = self._send_command("012C")  # Commanded EGR
             if egr_test and "NODATA" not in egr_test.upper():
-                results["egr_test"] = "Supported"
+                results["egr_test"] = f"Supported --> {egr_test}"
             
             # Test EVAP purge (if supported)
             evap_test = self._send_command("012E")  # Commanded evaporative purge
             if evap_test and "NODATA" not in evap_test.upper():
-                results["evap_test"] = "Supported"
+                results["evap_test"] = f"Supported --> {evap_test}"
             
             # Test throttle actuator (if supported)
             throttle_test = self._send_command("013C")  # Commanded throttle actuator
             if throttle_test and "NODATA" not in throttle_test.upper():
-                results["throttle_test"] = "Supported"
+                results["throttle_test"] = f"Supported --> {throttle_test}"
             
             results["note"] = "Actuator testing requires vehicle-specific commands"
             
@@ -1156,7 +1240,7 @@ class ELM327Scanner:
         
         return results
     
-    def monitor_battery_voltage(self) -> float:
+    def monitor_battery_voltage(self) -> float: # !! checked :)
         """Monitor vehicle battery voltage"""
         try:
             response = self._send_command("ATRV")
@@ -1221,7 +1305,7 @@ class ELM327Scanner:
             # Wait for initial movement
             while True:
                 speed_reading = self.read_pid("010D")  # Vehicle speed
-                if speed_reading and speed_reading.value > 5:
+                if speed_reading and speed_reading.signals[0]['value'] > 5:
                     results["start_time"] = datetime.now()
                     print(f"Test started at {results['start_time'].strftime('%H:%M:%S.%f')[:-3]}")
                     break
@@ -1234,13 +1318,13 @@ class ELM327Scanner:
                 rpm_reading = self.read_pid("010C")
                 
                 if speed_reading:
-                    current_speed = speed_reading.value
+                    current_speed = speed_reading.signals[0]['value']
                     current_time = datetime.now()
                     
                     results["readings"].append({
                         "time": current_time,
                         "speed": current_speed,
-                        "rpm": rpm_reading.value if rpm_reading else 0
+                        "rpm": rpm_reading.signals[0]['value'] if rpm_reading else 0
                     })
                     
                     results["max_speed"] = max(results["max_speed"], current_speed)
@@ -1265,7 +1349,211 @@ class ELM327Scanner:
         
         return results
     
-    def get_comprehensive_vehicle_scan(self) -> Dict[str, Any]:
+    def HP_test_v2(self):
+        results = {
+            "start_time": None,
+            "end_time": None,
+            "duration": None,
+            "readings": [],
+            "max_speed": 0,
+            "engine_hp_estimates": [],
+            "wheel_hp_estimates": [],
+            "error": None,
+        }
+
+        try:
+            # Wait until car starts moving (> 5 km/h)
+            while True:
+                speed_reading = self.reader.read_pid("010D")  # Vehicle speed
+                if speed_reading and speed_reading.signals[0]['value'] > 5:
+                    results["start_time"] = datetime.now()
+                    print(f"Test started at {results['start_time'].strftime('%H:%M:%S.%f')[:-3]}")
+                    break
+                time.sleep(0.1)
+
+            # Monitor until 100 km/h or timeout
+            start_time = time.time()
+            last_speed = None
+            last_time = None
+
+            while time.time() - start_time < 60:  # 60s timeout
+                speed_reading = self.reader.read_pid("010D")   # speed
+                rpm_reading = self.reader.read_pid("010C")     # RPM
+
+                if speed_reading and rpm_reading:
+                    current_speed = speed_reading.signals[0]['value']   # km/h
+                    current_time = datetime.now()
+                    rpm = rpm_reading.signals[0]['value']
+
+                    # Convert speed to m/s
+                    speed_mps = current_speed / 3.6  
+
+                    # --- Engine HP estimation ---
+                    # Step 1: Airflow (CFM)
+                    airflow_cfm = (rpm * self.displacement * self.ve) / 3456
+                    # Step 2: Airflow in lb/min
+                    airflow_lb_min = airflow_cfm * 0.0765
+                    # Step 3: HP
+                    engine_hp = airflow_lb_min * 14.27
+
+                    # --- Wheel HP estimation (physics) ---
+                    wheel_hp = 0
+                    if last_speed is not None and last_time is not None:
+                        dt = (current_time - last_time).total_seconds()
+                        dv = (current_speed - last_speed) / 3.6  # m/s
+                        if dt > 0:
+                            acceleration = dv / dt
+                            force = self.weight * acceleration
+                            wheel_hp = (force * speed_mps) / 746  # Watts → HP
+
+                    results["readings"].append({
+                        "time": current_time,
+                        "speed_kmh": current_speed,
+                        "rpm": rpm,
+                        "engine_hp": engine_hp,
+                        "wheel_hp": wheel_hp,
+                    })
+
+                    results["engine_hp_estimates"].append(engine_hp)
+                    results["wheel_hp_estimates"].append(wheel_hp)
+                    results["max_speed"] = max(results["max_speed"], current_speed)
+
+                    if current_speed >= 100:  # Goal reached
+                        results["end_time"] = current_time
+                        break
+
+                    last_speed = current_speed
+                    last_time = current_time
+
+                time.sleep(0.1)
+
+            # Calculate duration
+            if results["start_time"] and results["end_time"]:
+                duration = (results["end_time"] - results["start_time"]).total_seconds()
+                results["duration"] = duration
+                print(f"0-100 km/h completed in {duration:.2f} seconds")
+            else:
+                print("Test did not complete (didn't reach 100 km/h)")
+
+            # Report averages
+            if results["engine_hp_estimates"]:
+                avg_engine_hp = sum(results["engine_hp_estimates"]) / len(results["engine_hp_estimates"])
+                print(f"Estimated Engine HP (from RPM+Displacement+VE): {avg_engine_hp:.1f} HP")
+
+            if results["wheel_hp_estimates"]:
+                avg_wheel_hp = sum(results["wheel_hp_estimates"]) / len(results["wheel_hp_estimates"])
+                print(f"Estimated Wheel HP (from acceleration): {avg_wheel_hp:.1f} HP")
+
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Performance test failed: {e}")
+            else:
+                print(f"Error: {e}")
+            results["error"] = str(e)
+
+        return results
+
+    def HP_test_v1(self, weight):
+        results = {
+            "start_time": None,
+            "end_time": None,
+            "duration": None,
+            "readings": [],
+            "max_engine_hp": 0,
+            "max_wheel_hp": 0,
+            "max_speed": 0,
+            "engine_hp_estimates": [],
+            "wheel_hp_estimates": [],
+            "error": None,
+        }
+
+        try:
+            # Wait until car starts moving (> 5 km/h)
+            while True:
+                speed_reading = self.read_pid("010D")  # Vehicle speed
+                if speed_reading and speed_reading.signals[0]['value'] > 5:
+                    results["start_time"] = datetime.now()
+                    print(f"Test started at {results['start_time'].strftime('%H:%M:%S.%f')[:-3]}")
+                    break
+                time.sleep(0.1)
+
+            # Monitor until 100 km/h or timeout
+            start_time = time.time()
+            last_speed = None
+            last_time = None
+            
+
+            while time.time() - start_time < 60:  # 60s timeout
+                speed_reading = self.read_pid("010D")   # speed
+                rpm_reading = self.read_pid("010C")     # RPM
+                maf_reading = self.read_pid("0110")     # Mass Air Flow (g/s)
+
+                if speed_reading:
+                    current_speed = speed_reading.signals[0]['value']   # km/h
+                    current_time = datetime.now()
+                    rpm = rpm_reading.signals[0]['value'] if rpm_reading else 0
+                    maf = maf_reading.signals[0]['value'] if maf_reading else 0
+
+                    # Convert speed to m/s for physics calculations
+                    speed_mps = current_speed / 3.6  
+
+                    # Estimate Engine HP (from MAF)
+                    engine_hp = maf * 0.135 if maf else 0
+
+                    # Estimate Wheel HP (from acceleration)
+                    wheel_hp = 0
+                    if last_speed is not None and last_time is not None:
+                        dt = (current_time - last_time).total_seconds()
+                        dv = (current_speed - last_speed) / 3.6  # m/s
+                        if dt > 0:
+                            acceleration = dv / dt
+                            force = weight * acceleration
+                            wheel_hp = (force * speed_mps) / 746  # Watts → HP
+
+                    
+                    results["readings"].append({
+                        "time": current_time,
+                        "speed_kmh": current_speed,
+                        "rpm": rpm,
+                        "maf_gs": maf,
+                        "engine_hp": engine_hp,
+                        "wheel_hp": wheel_hp,
+                    })
+
+                    results["engine_hp_estimates"].append(engine_hp)
+                    results["wheel_hp_estimates"].append(wheel_hp)
+                    results["max_engine_hp"] = max(results["max_engine_hp"], engine_hp)
+                    results["max_wheel_hp"] = max(results["max_wheel_hp"], wheel_hp)
+                    results["max_speed"] = max(results["max_speed"], current_speed)
+
+                    if current_speed >= 100:  # Goal reached
+                        results["end_time"] = current_time
+                        break
+
+                    last_speed = current_speed
+                    last_time = current_time
+
+                time.sleep(0.1)
+
+            # Calculate duration
+            if results["start_time"] and results["end_time"]:
+                duration = (results["end_time"] - results["start_time"]).total_seconds()
+                results["duration"] = duration
+                print(f"0-100 km/h completed in {duration:.2f} seconds")
+            else:
+                print("Test did not complete (didn't reach 100 km/h) or 60s")
+
+          
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Performance test failed: {e}")
+            else:
+                print(f"Error: {e}")
+            results["error"] = str(e)
+
+        return results
+
+    def get_comprehensive_vehicle_scan(self) -> Dict[str, Any]: ## !! checked :)
         """Perform comprehensive vehicle scan"""
         scan_results = {
             "timestamp": datetime.now(),
@@ -1329,6 +1617,7 @@ class OBDCommandInterface:
     
     def __init__(self):
         self.scanner = None
+        self.log = None
         self.running = True
         
     def start(self):
@@ -1388,6 +1677,7 @@ class OBDCommandInterface:
             'protocol': self.cmd_protocol,
             'at': self.cmd_at_command,
             'o2test': self.cmd_o2_test,
+            'hp_test_v1': self.cmd_HP_test_v1,
             'actuator': self.cmd_actuator_test,
             'battery': self.cmd_battery,
             'performance': self.cmd_performance,
@@ -1466,6 +1756,7 @@ Examples:
         print(f"Connecting to ELM327 at {host}:{port}...")
         
         self.scanner = ELM327Scanner(host, port)
+        self.log = StoreRadings()
         
         if self.scanner.connect():
             print("✓ Connected successfully!")
@@ -1553,6 +1844,8 @@ Examples:
                 print("  " + " ".join(pid_group))
         
         print("\n" + "="*60)
+
+    
     
     def cmd_dtc(self, args):
         """Read diagnostic trouble codes"""
@@ -1710,7 +2003,7 @@ Examples:
         else:
             print("No freeze frame data available")
     
-    def cmd_protocol(self, args):
+    def cmd_protocol(self, args): ## ? later :(
         """Set or show protocol"""
         if not self._check_connection():
             return
@@ -1785,6 +2078,59 @@ Examples:
         else:
             print("No oxygen sensor data available")
     
+    def cmd_HP_test_v1(self, args):
+        """THE HP TEST WILL START SOON... BE READY"""
+        if not self._check_connection():
+            return
+        
+        print("THE HP TEST WILL START SOON... BE READY")
+        print("Starting 0-100 km/h acceleration test...")
+        print("Make sure vehicle is in a safe location for testing!")
+
+
+        weight = input("What is the wight of ur car in kg ? ")
+        while not weight.isdigit():
+            print("Please Just Type Numbers :(")
+            weight = input("What is the wight of ur car in kg ? ")
+
+        confirm = input("Continue with performance test? (yes/no): ").strip().lower()
+        if confirm not in ['yes', 'y']:
+            print("Test cancelled")
+            return
+        
+
+        results = self.scanner.HP_test_v1(weight)
+        
+        # results = self.scanner.performance_test_0_to_100()
+        
+        if results.get("duration"):
+            print("The Test completed ✌️")
+            print("\nPerformance Test Results:")
+            print("-" * 40)
+            print(f"  0-100 km/h time: {results['duration']:.2f} seconds")
+            # Report averages
+            if results["engine_hp_estimates"]:
+                avg_engine_hp = sum(results["engine_hp_estimates"]) / len(results["engine_hp_estimates"])
+                print(f"  Estimated Engine HP (from MAF): {avg_engine_hp:.1f} HP")
+
+            if results["wheel_hp_estimates"]:
+                avg_wheel_hp = sum(results["wheel_hp_estimates"]) / len(results["wheel_hp_estimates"])
+                print(f"  Estimated Wheel HP (from acceleration): {avg_wheel_hp:.1f} HP")
+            
+            print(f"  Maximum Engine HP (from acceleration): {results['max_engine_hp']:.1f} HP")
+            print(f"  Maximum Wheel HP (from acceleration): {results['max_wheel_hp']:.1f} HP")
+            print(f"  Maximum Speed (from acceleration): {results['max_speed']:.1f} km/h")
+
+            print(f"  Data points: {len(results['readings'])}")
+            self.log.appendToJson("hp", results)
+
+        else:
+            print("  Something wrong happend during the test 🤷‍♂️")
+            if "error" in results:
+                print(f"  Error: {results['error']}")
+
+
+
     def cmd_actuator_test(self, args):
         """Test actuators"""
         if not self._check_connection():

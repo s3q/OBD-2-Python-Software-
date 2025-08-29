@@ -32,3 +32,21 @@ print(l[0:3])
 
 bits = "01000001000011000"
 print(int(bits, 2))
+
+def parse_pid_response(resp: str):
+    """
+    Assumes resp is already cleaned (e.g., '410C0FA0').
+    """
+    mode = resp[:2]   # '41'
+    pid  = resp[2:4]  # '0C'
+    data = resp[4:]   # '0FA0' (remaining hex string)
+    return mode, pid, data
+
+raw = "410C0000>>>"
+command="010C"
+if raw.startswith(command):
+    responrawse = raw[len(command):].strip()
+
+mode, pid, data = parse_pid_response(raw)
+
+print("ECU respond --> ",mode, pid, data, " ")
