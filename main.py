@@ -552,7 +552,7 @@ class ELM327Scanner:
             bits = bin(int(r, 16))[2:].zfill(len(r) * 4)
             print(bits, " done1")
 
-            if len(data_bytes) < 3:  # At least mode + PID + 1 data byte
+            if len(data_bytes) < 1:  # At least mode + PID + 1 data byte
                 return None
             
             
@@ -1727,6 +1727,7 @@ Testing & Monitoring:
   actuator               - Test actuators (where supported)
   battery                - Monitor battery voltage
   performance            - Run 0-100 km/h acceleration test
+  hp_test_v1             - Run 0-100 km/h to estimate Hours Power   
 
 Data Management:
   log start [file]       - Start logging to file

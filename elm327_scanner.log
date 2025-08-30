@@ -113,3 +113,12 @@
 2025-08-28 10:53:55,904 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'SEARCHING...410C0000'
 2025-08-28 10:55:10,519 - ERROR - Failed to read PID 100C: 'signals'
 2025-08-28 10:55:25,530 - ERROR - Failed to read PID 10C0: 'signals'
+2025-08-29 18:23:25,975 - INFO - ELM327 initialized successfully
+2025-08-29 18:23:26,012 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-29 18:24:07,696 - ERROR - Failed to read PID 0118: invalid literal for int() with base 16: 'CHING...UNABLETOCONNECT'
+2025-08-29 18:24:30,411 - ERROR - Failed to parse hex response: CHING...410C0000 - invalid literal for int() with base 16: 'CH'
+2025-08-29 18:24:30,427 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'CHING...410C0000'
+2025-08-29 18:28:08,164 - INFO - ELM327 initialized successfully
+2025-08-29 18:28:08,179 - INFO - Connected to ELM327 at 192.168.0.10:35000
+2025-08-29 18:28:13,672 - ERROR - Failed to parse hex response: CHING...410C0000 - invalid literal for int() with base 16: 'CH'
+2025-08-29 18:28:13,674 - ERROR - Failed to read PID 010C: invalid literal for int() with base 16: 'CHING...410C0000'
